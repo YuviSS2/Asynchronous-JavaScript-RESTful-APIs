@@ -1,170 +1,143 @@
-/**
- * Task 4: Asynchronous JavaScript & RESTful APIs
- * Features: Fetch API with Async/Await, Comprehensive Error Handling, 
- * Nested JSON Parsing, & Dynamic UI Rendering.
- */
+function initPage() {
+    const cityEl = document.getElementById("enter-city");
+    const searchEl = document.getElementById("search-button");
+    const clearEl = document.getElementById("clear-history");
+    const nameEl = document.getElementById("city-name");
+    const currentPicEl = document.getElementById("current-pic");
+    const currentTempEl = document.getElementById("temperature");
+    const currentHumidityEl = document.getElementById("humidity");
+    const currentWindEl = document.getElementById("wind-speed");
+    const currentUVEl = document.getElementById("UV-index");
+    const historyEl = document.getElementById("history");
+    var fivedayEl = document.getElementById("fiveday-header");
+    var todayweatherEl = document.getElementById("today-weather");
+    let searchHistory = JSON.parse(localStorage.getItem("search")) || [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. API CONFIGURATION
-    // Note: Using a reliable, free open-access endpoint that doesn't require complex server keys for student grading environments
-    const API_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
-    const API_KEY = 'YOUR_OPENWEATHER_API_KEY'; // Replace with a valid OpenWeatherMap API key
+    // Assigning a unique API to a variable
+    const APIKey = "84b79da5e5d7c92085660485702f4ce8";
 
-    // 2. DOM SELECTORS
-    const weatherForm = document.getElementById('weather-form') || createWeatherAppSkeleton();
-    const cityInput = document.getElementById('city-input');
-    const weatherDisplay = document.getElementById('weather-display');
+    function getWeather(cityName) {
+        // Execute a current weather get request from open weather api
+        let queryURL = "https://api.openweathermap.org/data/2.5/weather?q=" + cityName + "&appid=" + APIKey;
+        axios.get(queryURL)
+            .then(function (response) {
 
-    // 3. INITIALIZATION
-    if (weatherForm) {
-        weatherForm.addEventListener('submit', handleWeatherSearch);
-    }
+                todayweatherEl.classList.remove("d-none");
 
-    /**
-     * Core Event Handler for City Weather Search
-     */
-    async function handleWeatherSearch(event) {
-        event.preventDefault();
-        
-        const cityName = cityInput.value.trim();
-        if (!cityName) return;
-
-        // Visual loading state trigger for better UX/Accessibility
-        renderLoading(true);
-
-        try {
-            // Initiate Asynchronous Network Fetch Request
-            const response = await fetch(`${API_BASE_URL}?q=${encodeURIComponent(cityName)}&units=metric&appid=${API_KEY}`);
-            
-            // Defensive Check: Handle non-200 HTTP status responses (e.g., 404 City Not Found, 401 Unauthorized)
-            if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error(`City "${cityName}" not found. Please verify the spelling and try again.`);
-                } else if (response.status === 401) {
-                    throw new Error('Invalid API Key. Please supply a valid OpenWeatherMap API token.');
-                } else {
-                    throw new Error(`Server returned status code: ${response.status}`);
-                }
-            }
-
-            // Parse raw JSON response stream data payload
-            const data = await response.json();
-            
-            // Pass nested JSON object directly into DOM construction compiler
-            renderWeatherCard(data);
-
-        } catch (error) {
-            // Route all standard failures, exceptions, and network drops to user error element
-            renderError(error.message);
-        } finally {
-            // Ensure loading animation completes regardless of operation success/failure
-            renderLoading(false);
-        }
-    }
-
-    // ==========================================================================
-    // DYNAMIC DOM RENDERING ENGINE & DATA EXTRACTION
-    // ==========================================================================
-
-    /**
-     * Safely parses nested JSON nodes and paints metrics layout data onto screen
-     */
-    function renderWeatherCard(data) {
-        // Extracting required complex nested data metrics safely
-        const { name, main, wind, weather } = data;
-        const temperature = Math.round(main.temp);
-        const humidity = main.humidity;
-        const windSpeed = (wind.speed * 3.6).toFixed(1); // Converts meters/sec to km/h
-        const description = weather[0].description;
-        const iconCode = weather[0].icon;
-
-        weatherDisplay.innerHTML = `
-            <div class="weather-card" style="animation: fadeIn 0.5s ease; text-align: center;">
-                <h3>Live Weather in ${escapeHTML(name)}, ${data.sys.country}</h3>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin: 1rem 0;">
-                    <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${escapeHTML(description)}" width="80" height="80">
-                    <span style="font-size: 3rem; font-weight: 800; line-height: 1;">${temperature}°C</span>
-                </div>
-                <p style="text-transform: capitalize; font-weight: 600; color: var(--text-muted); margin-bottom: 1.5rem;">
-                    ${escapeHTML(description)}
-                </p>
+                // Parse response to display current weather
+                const currentDate = new Date(response.data.dt * 1000);
+                const day = currentDate.getDate();
+                const month = currentDate.getMonth() + 1;
+                const year = currentDate.getFullYear();
+                nameEl.innerHTML = response.data.name + " (" + month + "/" + day + "/" + year + ") ";
+                let weatherPic = response.data.weather[0].icon;
+                currentPicEl.setAttribute("src", "https://openweathermap.org/img/wn/" + weatherPic + "@2x.png");
+                currentPicEl.setAttribute("alt", response.data.weather[0].description);
+                currentTempEl.innerHTML = "Temperature: " + k2f(response.data.main.temp) + " &#176F";
+                currentHumidityEl.innerHTML = "Humidity: " + response.data.main.humidity + "%";
+                currentWindEl.innerHTML = "Wind Speed: " + response.data.wind.speed + " MPH";
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                    <div style="text-align: left; padding: 0.5rem; background: var(--bg-primary); border-radius: var(--radius-md);">
-                        <small style="color: var(--text-muted); display: block;">Humidity</small>
-                        <strong>${humidity}%</strong>
-                    </div>
-                    <div style="text-align: left; padding: 0.5rem; background: var(--bg-primary); border-radius: var(--radius-md);">
-                        <small style="color: var(--text-muted); display: block;">Wind Speed</small>
-                        <strong>${windSpeed} km/h</strong>
-                    </div>
-                </div>
-            </div>
-        `;
+                // Get UV Index
+                let lat = response.data.coord.lat;
+                let lon = response.data.coord.lon;
+                let UVQueryURL = "https://api.openweathermap.org/data/2.5/uvi/forecast?lat=" + lat + "&lon=" + lon + "&appid=" + APIKey + "&cnt=1";
+                axios.get(UVQueryURL)
+                    .then(function (response) {
+                        let UVIndex = document.createElement("span");
+                        
+                        // When UV Index is good, shows green, when ok shows yellow, when bad shows red
+                        if (response.data[0].value < 4 ) {
+                            UVIndex.setAttribute("class", "badge badge-success");
+                        }
+                        else if (response.data[0].value < 8) {
+                            UVIndex.setAttribute("class", "badge badge-warning");
+                        }
+                        else {
+                            UVIndex.setAttribute("class", "badge badge-danger");
+                        }
+                        console.log(response.data[0].value)
+                        UVIndex.innerHTML = response.data[0].value;
+                        currentUVEl.innerHTML = "UV Index: ";
+                        currentUVEl.append(UVIndex);
+                    });
+                
+                // Get 5 day forecast for this city
+                let cityID = response.data.id;
+                let forecastQueryURL = "https://api.openweathermap.org/data/2.5/forecast?id=" + cityID + "&appid=" + APIKey;
+                axios.get(forecastQueryURL)
+                    .then(function (response) {
+                        fivedayEl.classList.remove("d-none");
+                        
+                        //  Parse response to display forecast for next 5 days
+                        const forecastEls = document.querySelectorAll(".forecast");
+                        for (i = 0; i < forecastEls.length; i++) {
+                            forecastEls[i].innerHTML = "";
+                            const forecastIndex = i * 8 + 4;
+                            const forecastDate = new Date(response.data.list[forecastIndex].dt * 1000);
+                            const forecastDay = forecastDate.getDate();
+                            const forecastMonth = forecastDate.getMonth() + 1;
+                            const forecastYear = forecastDate.getFullYear();
+                            const forecastDateEl = document.createElement("p");
+                            forecastDateEl.setAttribute("class", "mt-3 mb-0 forecast-date");
+                            forecastDateEl.innerHTML = forecastMonth + "/" + forecastDay + "/" + forecastYear;
+                            forecastEls[i].append(forecastDateEl);
+
+                            // Icon for current weather
+                            const forecastWeatherEl = document.createElement("img");
+                            forecastWeatherEl.setAttribute("src", "https://openweathermap.org/img/wn/" + response.data.list[forecastIndex].weather[0].icon + "@2x.png");
+                            forecastWeatherEl.setAttribute("alt", response.data.list[forecastIndex].weather[0].description);
+                            forecastEls[i].append(forecastWeatherEl);
+                            const forecastTempEl = document.createElement("p");
+                            forecastTempEl.innerHTML = "Temp: " + k2f(response.data.list[forecastIndex].main.temp) + " &#176F";
+                            forecastEls[i].append(forecastTempEl);
+                            const forecastHumidityEl = document.createElement("p");
+                            forecastHumidityEl.innerHTML = "Humidity: " + response.data.list[forecastIndex].main.humidity + "%";
+                            forecastEls[i].append(forecastHumidityEl);
+                        }
+                    })
+            });
     }
 
-    function renderLoading(isLoading) {
-        if (isLoading) {
-            weatherDisplay.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 2rem 0;">
-                    <div class="spinner" style="width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                    <p style="color: var(--text-muted);">Fetching real-time updates...</p>
-                </div>
-            `;
+    // Get history from local storage if any
+    searchEl.addEventListener("click", function () {
+        const searchTerm = cityEl.value;
+        getWeather(searchTerm);
+        searchHistory.push(searchTerm);
+        localStorage.setItem("search", JSON.stringify(searchHistory));
+        renderSearchHistory();
+    })
+
+    // Clear History button
+    clearEl.addEventListener("click", function () {
+        localStorage.clear();
+        searchHistory = [];
+        renderSearchHistory();
+    })
+
+    function k2f(K) {
+        return Math.floor((K - 273.15) * 1.8 + 32);
+    }
+
+    function renderSearchHistory() {
+        historyEl.innerHTML = "";
+        for (let i = 0; i < searchHistory.length; i++) {
+            const historyItem = document.createElement("input");
+            historyItem.setAttribute("type", "text");
+            historyItem.setAttribute("readonly", true);
+            historyItem.setAttribute("class", "form-control d-block bg-white");
+            historyItem.setAttribute("value", searchHistory[i]);
+            historyItem.addEventListener("click", function () {
+                getWeather(historyItem.value);
+            })
+            historyEl.append(historyItem);
         }
     }
 
-    function renderError(message) {
-        weatherDisplay.innerHTML = `
-            <div style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 1rem; border-radius: var(--radius-md); margin-top: 1rem;" role="alert">
-                <p><strong>Error Encountered:</strong> ${escapeHTML(message)}</p>
-            </div>
-        `;
+    renderSearchHistory();
+    if (searchHistory.length > 0) {
+        getWeather(searchHistory[searchHistory.length - 1]);
     }
+    
+}
 
-    function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, 
-            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-        );
-    }
-
-    /**
-     * Automatically constructs UI workspace markup structure cleanly if missing on page loads
-     */
-    function createWeatherAppSkeleton() {
-        const parent = document.getElementById('main-content') || document.body;
-        const container = document.createElement('section');
-        container.id = 'weather-app-container';
-        container.style.maxWidth = '500px';
-        container.style.margin = '2rem auto';
-        container.style.padding = '1.5rem';
-        container.style.backgroundColor = 'var(--bg-secondary, #fff)';
-        container.style.border = '1px solid var(--border-color, #dee2e6)';
-        container.style.borderRadius = 'var(--radius-md, 8px)';
-
-        container.innerHTML = `
-            <h2 style="margin-bottom: 1rem;">Real-Time Weather Dashboard</h2>
-            <form id="weather-form" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-                <input type="text" id="city-input" placeholder="Enter city name... (e.g., London)" required style="flex-grow: 1; padding: 0.75rem; border: 1px solid var(--border-color, #ccc); border-radius: 4px; font-size: 1rem;">
-                <button type="submit" style="background: #2563eb; color: #fff; border: none; padding: 0.75rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: 600;">Search</button>
-            </form>
-            <div id="weather-display">
-                <p style="color: var(--text-muted); text-align: center;">Enter a location above to inspect live atmospheric measurements.</p>
-            </div>
-        `;
-        parent.appendChild(container);
-
-        // Inject quick dynamic CSS keyframes into header layout programmatically for handling the animations
-        if (!document.getElementById('weather-animations')) {
-            const style = document.createElement('style');
-            style.id = 'weather-animations';
-            style.innerHTML = `
-                @keyframes spin { to { transform: rotate(360deg); } }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-            `;
-            document.head.appendChild(style);
-        }
-
-        return document.getElementById('weather-form');
-    }
-});
+initPage();
